@@ -266,6 +266,14 @@ def forward_linkages(x, flow, final_demand, policy):
 
 
 def linkage_based_classification(x, flow, final_demand, policy):
+    """
+    ZAD 4
+    :param x: output vector (gross outputs)
+    :param flow: intersectoral flow matrix (ndarray) - IO table
+    :param final_demand: final demand vector (ndarray) -f or y.
+    :param policy: eg. CO2
+    :return: classification of linkages
+    """
     results_bl = backward_linkages(x, flow, final_demand, policy, is_technology=False)[2]
     results_fl = forward_linkages(x, flow, final_demand, policy)[2]
     message = []
@@ -280,6 +288,45 @@ def linkage_based_classification(x, flow, final_demand, policy):
     return message
 
 
+def profitability(x, flow, profit):
+    """
+    ZAD 4
+    :param x: output vector (gross outputs)
+    :param flow: intersectoral flow matrix (ndarray) - IO table
+    :param profit: percentage profit - fill in as decimal
+    :return:
+    """
+    sum1 = np.sum(flow, 0)
+    z = (profit * (sum1 + x - sum1)) / (1 + profit)
+    # z = np.zeros_like(x)
+    # for index, x_i in enumerate(x):
+    #     z[index] = (profit * (sum1[index] + x_i - sum1[index]) / (1 + profit))
+    return z
+
+
+def deflation_to_another_year(flow, current_prices, old_prices, x, is_technology=False):
+    """
+
+    :param flow: intersectoral flow matrix (ndarray) - IO table
+    :param current_prices: prices in the newer year
+    :param old_prices: prices in the older year
+    :param x: output vector (gross outputs)
+    :param is_technology: check True if matrix is already technology matrix instead of flow matrix
+    :return: IO table, technical coeff., vector of total outputs - deflated to the previous year value terms
+    """
+    if is_technology is True:
+        flow = flow * x
+
+
+    ratio_prices_matrix = np.zeros_like(flow,dtype=np.float16)
+    row, col = np.diag_indices(ratio_prices_matrix.shape[0])
+    ratio_old_current = old_prices/current_prices
+    ratio_prices_matrix[row, col] = ratio_old_current
+
+    old_flow = ratio_prices_matrix @ flow
+    old_x = x @ ratio_prices_matrix
+    old_tech = technology_matrix(old_flow,old_x)
+    return old_flow, old_x, old_tech
 
 
 if __name__ == '__main__':
@@ -338,3 +385,20 @@ if __name__ == '__main__':
 
     print('\nClassification')
     print(linkage_based_classification(x=x, flow=flow, final_demand=y, policy=policy))
+
+    print('\nProfitability')
+    print(profitability(x=x, flow=flow, profit=0.2))
+
+    print('\nDeflation_to_another_year')
+    # flow = np.array([[24, 86, 56, 64],
+    #                  [32, 15, 78, 78],
+    #                  [104, 49, 62, 94],
+    #                  [14, 16, 63, 78]])
+    flow = np.array([[0.06030151, 0.27388535, 0.11940299, 0.14096916],
+     [0.08040201, 0.0477707,  0.1663113,  0.17180617],
+     [0.26130653, 0.15605096, 0.13219616, 0.20704846],
+     [0.03517588, 0.05095541, 0.13432836, 0.17180617]])
+    price_2005 = np.array([5, 6, 9, 12])
+    price_2000 = np.array([2, 3, 5, 7])
+    x = np.array([398, 314, 469, 454])
+    print(deflation_to_another_year(flow=flow, current_prices=price_2005, old_prices=price_2000, x=x, is_technology=True))
