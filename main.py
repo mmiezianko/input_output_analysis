@@ -239,6 +239,40 @@ def accoutinng_for_pollution_impacts(first_type_coeff, second_type_coeff, flow, 
     return sector_I_effects, sector_II_effects
 
 
+def inverse_importance(flow, x, row:int, column:int, alpha, beta, is_technology=False):
+    """
+
+    Check if alpha % change in one element generates beta % change in one or more elements
+    in the associated Leontief inverse
+
+    :param flow: intersectoral flow matrix (ndarray) - IO table
+    :param x: output vector (gross outputs)
+    :param row: row position of element that will be changed
+    :param column: column position of element that will be changed
+    :param alpha: change in element eg. 10 (%)
+    :param beta: inverse importance factor eg. 5 (%)
+    :param is_technology: check True if matrix is already technology matrix instead of old_flow matrix
+    :return: percentage_reaction matrix,
+    percentage_reaction[indices] - values in percentage reaction matrix higher than beta
+    """
+    row = row-1
+    column = column-1
+    if is_technology is False:
+        tech_initial = technology_matrix(flow=flow, output=x)
+    else:
+        tech_initial = flow
+    L_initial = leontief_inverse(tech_initial)
+    tech_adjusted = tech_initial
+    new_element = tech_adjusted[row][column] * (1+alpha/100)
+    tech_adjusted[row][column] = new_element
+
+    L_adjusted = leontief_inverse(tech_adjusted)
+    percentage_reaction = ((L_adjusted - L_initial)/L_initial)*100
+
+    indices = np.where(percentage_reaction > beta)
+
+    return percentage_reaction, percentage_reaction[indices]
+
 if __name__ == '__main__':
     # from sympy import linear_eq_to_matrix, symbols
     # a, b, c = symbols('a, b, c ')
@@ -323,10 +357,17 @@ if __name__ == '__main__':
     print(accoutinng_for_pollution_impacts(first_type_coeff=pollutions, second_type_coeff=jobs, flow=flow, x=x))
 
 
-    A = np.array([[0.168, 0.155, 0.213, 0.212],
-                 [0.194, 0.193, 0.168, 0.115],
-                 [0.105, 0.025, 0.126, 0.124],
-                 [0.178, 0.101, 0.219, 0.186]])
+    # A = np.array([[0.168, 0.155, 0.213, 0.212],
+    #              [0.194, 0.193, 0.168, 0.115],
+    #              [0.105, 0.025, 0.126, 0.124],
+    #              [0.178, 0.101, 0.219, 0.186]])
+    #
+    #
+    # print(leontief_inverse(technology=A))
 
-
-    print(leontief_inverse(technology=A))
+    print('\nInverse importance')
+    flow = np.array([[8, 64, 89],
+                    [28, 44, 77],
+                    [48, 24, 28]])
+    x = np.array([300, 250, 200])
+    inverse_importance(flow=flow, x=x, row=1, column=3, alpha=10, beta=2)
