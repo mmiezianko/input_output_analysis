@@ -7,8 +7,6 @@ from sympy import *
 from sympy.vector import matrix_to_vector, CoordSys3D
 
 
-
-
 def taylor_series_estimate(technology, final_demand, converge_threshold=None, x_old=None, is_technology=True,
                            number_of_iterations=None):
     """
@@ -104,7 +102,7 @@ def new_IO_table_based_on_delta(old_x, old_flow, old_y, delta_vector_x, delta_ve
         delta_x = L @ new_y  # correct
         # TODO: CHECK IF THIS IS CORRECT
         new_IO_table = tech * delta_x
-        print(new_IO_table)
+        print(delta_x)
         return new_IO_table
 
         # TODO: XY
@@ -142,7 +140,6 @@ def new_IO_table_based_on_delta(old_x, old_flow, old_y, delta_vector_x, delta_ve
     #         # # print(solve(a, -b, symbols('a, b, c ')))
     #         #
     #     print(list)
-
 
 
 def linkage_based_classification(x, flow, final_demand, policy):
@@ -202,16 +199,44 @@ def deflation_to_another_year(flow, current_prices, old_prices, x, is_technology
     if is_technology is True:
         flow = flow * x
 
-
-    ratio_prices_matrix = np.zeros_like(flow,dtype=np.float16)
+    ratio_prices_matrix = np.zeros_like(flow, dtype=np.float16)
     row, col = np.diag_indices(ratio_prices_matrix.shape[0])
-    ratio_old_current = old_prices/current_prices
+    ratio_old_current = old_prices / current_prices
     ratio_prices_matrix[row, col] = ratio_old_current
 
     old_flow = ratio_prices_matrix @ flow
     old_x = x @ ratio_prices_matrix
-    old_tech = technology_matrix(old_flow,old_x)
+    old_tech = technology_matrix(old_flow, old_x)
     return old_flow, old_x, old_tech
+
+
+def accoutinng_for_pollution_impacts(first_type_coeff, second_type_coeff, flow, x, is_technology=False):
+    """
+    ZAD 21
+
+    :param first_type_coeff: direct impact coeff. The amount of I pollutant type generated per dollar's worth of industry.
+    :param second_type_coeff: direct impact coeff. The amount of II pollutant type generated per dollar's worth of industry.
+    :param flow: intersectoral flow matrix (ndarray) - IO table
+    :param x: output vector (gross outputs)
+    :param is_technology: check True if matrix is already technology matrix instead of old_flow matrix
+    :return: sector_I_effects, sector_II_effects respectively to the order of type coeff.
+    Total impact generated
+    """
+    # D -Matrix of direct impact coeff. Matrix that describes the amount of pollutant type/creation of different pollutions (or pollutions and jobs etc)
+    # MATRIX SIZE 2x2!!!
+
+    D = np.r_[[first_type_coeff], [second_type_coeff]]
+    if is_technology is False:
+        tech = technology_matrix(flow=flow, output=x)
+    else:
+        tech = flow
+
+    L = leontief_inverse(technology=tech)
+    effects_matrix = D@L
+    sector_I_effects = effects_matrix[:,0]
+    sector_II_effects = effects_matrix[:, 1]
+    index = np.where(sector_I_effects > sector_II_effects)
+    return sector_I_effects, sector_II_effects
 
 
 if __name__ == '__main__':
@@ -249,12 +274,13 @@ if __name__ == '__main__':
     output1 = np.array(([200, 300]))
     print(final_demand_vector(flow1, output1, is_technology=True))
 
+    print('\nNew_IO_table_based_on_delta')
     flow2 = np.array([[200, 0, 200], [300, 0, 100], [0, 400, 0]])
     x_old2 = np.array([1000, 800, 500])
     y_old2 = np.array([600, 400, 100])
     delta_vector = np.array([50, 50, 50])
-    new_IO_table_based_on_delta(old_x=x_old2, old_y=y_old2, old_flow=flow2, delta_vector_x=None,
-                                delta_vector_y=delta_vector, type_of_delta='y')
+    print(new_IO_table_based_on_delta(old_x=x_old2, old_y=y_old2, old_flow=flow2, delta_vector_x=None,
+                                      delta_vector_y=delta_vector, type_of_delta='y'))
 
     print('\nBackward linkage')
     x = np.array([1000, 800, 500])
@@ -280,10 +306,18 @@ if __name__ == '__main__':
     #                  [104, 49, 62, 94],
     #                  [14, 16, 63, 78]])
     flow = np.array([[0.06030151, 0.27388535, 0.11940299, 0.14096916],
-     [0.08040201, 0.0477707,  0.1663113,  0.17180617],
-     [0.26130653, 0.15605096, 0.13219616, 0.20704846],
-     [0.03517588, 0.05095541, 0.13432836, 0.17180617]])
+                     [0.08040201, 0.0477707, 0.1663113, 0.17180617],
+                     [0.26130653, 0.15605096, 0.13219616, 0.20704846],
+                     [0.03517588, 0.05095541, 0.13432836, 0.17180617]])
     price_2005 = np.array([5, 6, 9, 12])
     price_2000 = np.array([2, 3, 5, 7])
     x = np.array([398, 314, 469, 454])
-    print(deflation_to_another_year(flow=flow, current_prices=price_2005, old_prices=price_2000, x=x, is_technology=True))
+    print(
+        deflation_to_another_year(flow=flow, current_prices=price_2005, old_prices=price_2000, x=x, is_technology=True))
+
+    print('\nAccoutinng_for_pollution_impacts')
+    pollutions = np.array([0.3, 0.5])
+    jobs = np.array([0.005, 0.07])
+    flow = np.array(([[140, 350], [800, 50]]))
+    x = np.array([1000, 1000])
+    print(accoutinng_for_pollution_impacts(first_type_coeff=pollutions, second_type_coeff=jobs, flow=flow, x=x))
