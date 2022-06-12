@@ -212,7 +212,7 @@ def deflation_to_another_year(flow, current_prices, old_prices, x, is_technology
 
 def accoutinng_for_pollution_impacts(first_type_coeff, second_type_coeff, flow, x, is_technology=False):
     """
-    ZAD 21
+    ZAD 21 !!IMPORTANT FOR GUI: first_type_coeff, second_type_coeff are fixed size vector 1x2 since we take into account 2 sectors!!!
 
     :param first_type_coeff: direct impact coeff. The amount of I pollutant type generated per dollar's worth of industry.
     :param second_type_coeff: direct impact coeff. The amount of II pollutant type generated per dollar's worth of industry.
@@ -223,7 +223,7 @@ def accoutinng_for_pollution_impacts(first_type_coeff, second_type_coeff, flow, 
     Total impact generated
     """
     # D -Matrix of direct impact coeff. Matrix that describes the amount of pollutant type/creation of different pollutions (or pollutions and jobs etc)
-    # MATRIX SIZE 2x2!!!
+
 
     D = np.r_[[first_type_coeff], [second_type_coeff]]
     if is_technology is False:
@@ -321,3 +321,12 @@ if __name__ == '__main__':
     flow = np.array(([[140, 350], [800, 50]]))
     x = np.array([1000, 1000])
     print(accoutinng_for_pollution_impacts(first_type_coeff=pollutions, second_type_coeff=jobs, flow=flow, x=x))
+
+
+    A = np.array([[0.168, 0.155, 0.213, 0.212],
+                 [0.194, 0.193, 0.168, 0.115],
+                 [0.105, 0.025, 0.126, 0.124],
+                 [0.178, 0.101, 0.219, 0.186]])
+
+
+    print(leontief_inverse(technology=A))
