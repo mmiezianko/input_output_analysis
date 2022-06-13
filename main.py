@@ -2,10 +2,29 @@
 """Basic linear algebra for IO Analysis."""
 from utils import *
 import numpy as np
+import pandas as pd
 
 from sympy import *
 from sympy.vector import matrix_to_vector, CoordSys3D
 
+
+def final_demand_vector(flow, x, is_technology=False):
+    """
+    ZAD 8 A)
+    Calculate final demand vector based on flow matrix and x (output vector)
+    :param technology: technology matrix
+    :param x: output vector (gross outputs)
+    :param is_technology: check True if maatrix is already technology matrix instead of flow matrix
+    :return: final demand vector (y)
+    """
+    if is_technology is True:
+        L = np.identity(flow.shape[0]) - flow
+
+    else:
+        technology = technology_matrix(flow, x)
+        L = np.identity(technology.shape[0]) - technology
+
+    return L @ x
 
 def taylor_series_estimate(technology, final_demand, converge_threshold=None, x_old=None, is_technology=True,
                            number_of_iterations=None):
@@ -273,6 +292,71 @@ def inverse_importance(flow, x, row:int, column:int, alpha, beta, is_technology=
 
     return percentage_reaction, percentage_reaction[indices]
 
+def dynamic_model(technology,x_assumption, capital_coeff, final_demand, projection_of_final_demand_next_years):
+    '''
+    ZAD 26
+    Projections of total output in the next years
+    G = (I-A+B)
+    xt = B^-1 ( Gxt - ft)
+
+    :param technology: technology matrix
+    :param x_assumption: assumed x vector
+    :param capital_coeff: B matrix
+    :param final_demand: f0 vector
+    :param projection_of_final_demand_next_years: f1, f2, f3... projections for the next few years (matrix)
+    :return:
+    x dataframe (Projections of total output in the next years),
+    Gxt dataframe,
+    xt+1 dataframe
+    '''
+
+
+    G = np.identity(technology.shape[0]) - technology + capital_coeff
+
+    dict_gxt ={}
+    dict_gxt['gxt_0'] =  G @ x_assumption - final_demand
+
+
+    dict_x_plus1 = {}
+    dict_x_plus1['x_plus1_0'] = np.linalg.inv(capital_coeff) @ dict_gxt['gxt_0'].T
+
+
+    dict_x = {}
+    dict_x['x_0'] = dict_x_plus1['x_plus1_0']
+    # print(dict_x['x_0'])
+
+
+
+
+    for i, ft in enumerate(projection_of_final_demand_next_years):
+        print(i)
+
+        key_x = 'x_{}'.format(i+1)
+        key_x_plus_1 = 'x_plus1_{}'.format(i)
+        key_x_plus_1_next = 'x_plus1_{}'.format(i+1)
+        key_gxt = f'gxt_{i+1}'
+
+        dict_x[key_x] = dict_x_plus1[key_x_plus_1]
+        # print(f"Xt: {dict_x[key_x]}")
+
+        dict_gxt[key_gxt] = G @ dict_x[key_x] - ft
+        # print(f"GXt-ft: {dict_gxt[key_gxt]}")
+
+        dict_x_plus1[key_x_plus_1_next] = np.linalg.inv(capital_coeff) @ dict_gxt[key_gxt].T
+        # print(f"Xt+1: {dict_x_plus1[key_x_plus_1_next]}")
+
+        df_dict_x = pd.DataFrame(dict_x)
+        print(df_dict_x)
+        df_dict_gxt = pd.DataFrame(dict_gxt)
+        print(df_dict_gxt)
+        df_dict_x_plus1= pd.DataFrame(dict_x_plus1)
+        print(df_dict_x_plus1)
+    return df_dict_x, df_dict_gxt, df_dict_x_plus1
+
+
+
+
+
 if __name__ == '__main__':
     # from sympy import linear_eq_to_matrix, symbols
     # a, b, c = symbols('a, b, c ')
@@ -320,7 +404,7 @@ if __name__ == '__main__':
     x = np.array([1000, 800, 500])
     flow = np.array([[200, 0, 200], [300, 0, 100], [0, 400, 0]])
     y = np.array([600, 400, 100])
-    policy = y = np.array([20, 30, 10])
+    policy = np.array([20, 30, 10])
     results = backward_linkages(x=x, flow=flow, final_demand=y, policy=policy, is_technology=False)
     print(results)
 
@@ -329,7 +413,10 @@ if __name__ == '__main__':
     print(forward_linkages(x=x, flow=flow, final_demand=y, policy=policy))
 
     print('\nClassification')
-    print(linkage_based_classification(x=x, flow=flow, final_demand=y, policy=policy))
+    mess, fl,bl = linkage_based_classification(x=x, flow=flow, final_demand=y, policy=policy)
+    print(mess)
+    print(fl)
+    print(bl)
 
     print('\nProfitability')
     print(profitability(x=x, flow=flow, profit=0.2))
@@ -370,4 +457,17 @@ if __name__ == '__main__':
                     [28, 44, 77],
                     [48, 24, 28]])
     x = np.array([300, 250, 200])
-    inverse_importance(flow=flow, x=x, row=1, column=3, alpha=10, beta=2)
+    print(inverse_importance(flow=flow, x=x, row=1, column=3, alpha=10, beta=2))
+
+    print('\nDynamic model')
+    technology = np.array([[0.3, 0.1],
+                           [0.2, 0.5]])
+    x_assumption = np.array([181, 272])
+    final_demand = np.array([100, 100])
+    B = np.array([[0.01, 0.003],
+                 [0.005, 0.02]])
+
+    projection_of_final_demand_next_years = [[125, 160],
+                                             [150, 175],
+                                             [185, 200]]
+    dynamic_model(technology=technology, x_assumption = x_assumption, capital_coeff= B, final_demand=final_demand, projection_of_final_demand_next_years=projection_of_final_demand_next_years )

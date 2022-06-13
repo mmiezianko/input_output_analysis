@@ -50,23 +50,6 @@ def leontief_inverse(technology):
     return np.linalg.inv(np.identity(technology.shape[0]) - technology)
 
 
-def final_demand_vector(flow, x, is_technology=False):
-    """
-    ZAD 8 A)
-    Calculate final demand vector based on flow matrix and x (output vector)
-    :param technology: technology matrix
-    :param x: output vector (gross outputs)
-    :param is_technology: check True if maatrix is already technology matrix instead of flow matrix
-    :return: final demand vector (y)
-    """
-    if is_technology is True:
-        L = np.identity(flow.shape[0]) - flow
-
-    else:
-        technology = technology_matrix(flow, x)
-        L = np.identity(technology.shape[0]) - technology
-
-    return L @ x
 
 
 def ghosh_technology_matrix(x, flow):
